@@ -1,0 +1,17 @@
+services:
+  sydney-fishing:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: sydney-fishing
+    restart: unless-stopped
+    environment:
+      - TZ=Australia/Sydney
+      - APP_DATA_DIR=/app/data
+      # If you later want Turso, uncomment and set these:
+      # - TURSO_DATABASE_URL=
+      # - TURSO_AUTH_TOKEN=
+    volumes:
+      - ../../data:/app/data
+    ports:
+      - "127.0.0.1:8501:8501"

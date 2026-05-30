@@ -21,7 +21,10 @@ TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
 USE_TURSO = bool(TURSO_URL and TURSO_TOKEN)
 
 # 本地 SQLite 路径
-DB_PATH = Path(__file__).parent.parent / "data" / "stats.db"
+APP_DATA_DIR = Path(
+    os.environ.get("APP_DATA_DIR", str(Path(__file__).parent.parent / "data"))
+)
+DB_PATH = APP_DATA_DIR / "stats.db"
 
 # Session state keys
 _SESSION_KEY_ID = "stats_session_id"
@@ -89,7 +92,7 @@ def _query_all(sql: str, params: tuple = ()):
 def _init_db():
     """初始化数据库（模块加载时调用一次）"""
     if not USE_TURSO:
-        DB_PATH.parent.mkdir(exist_ok=True)
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     
     _execute('''
         CREATE TABLE IF NOT EXISTS visits (

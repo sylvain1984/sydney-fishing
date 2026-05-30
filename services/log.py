@@ -17,7 +17,10 @@ TURSO_URL = os.environ.get("TURSO_DATABASE_URL")
 TURSO_TOKEN = os.environ.get("TURSO_AUTH_TOKEN")
 USE_TURSO = bool(TURSO_URL and TURSO_TOKEN)
 
-DB_PATH = Path(__file__).parent.parent / "data" / "stats.db"
+APP_DATA_DIR = Path(
+    os.environ.get("APP_DATA_DIR", str(Path(__file__).parent.parent / "data"))
+)
+DB_PATH = APP_DATA_DIR / "stats.db"
 MAX_PHOTOS = 4
 MAX_PHOTO_BYTES = 3 * 1024 * 1024
 
@@ -74,7 +77,7 @@ def _query_all(sql: str, params: tuple = ()):
 
 def _init_db():
     if not USE_TURSO:
-        DB_PATH.parent.mkdir(exist_ok=True)
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     _execute('''
         CREATE TABLE IF NOT EXISTS fishing_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
