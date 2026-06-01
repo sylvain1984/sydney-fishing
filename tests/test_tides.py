@@ -19,6 +19,19 @@ class TideServiceTest(unittest.TestCase):
         )
         self.assertEqual(result[0]["source"], "circular_quay")
 
+    def test_circular_quay_override_for_june_1(self):
+        result = tides.get_tides_for_date(datetime(2026, 6, 1))
+        self.assertEqual(
+            [(x["time"].strftime("%H:%M"), x["height_m"], x["is_high"]) for x in result],
+            [
+                ("03:00", 0.53, False),
+                ("08:51", 1.35, True),
+                ("14:15", 0.69, False),
+                ("20:54", 1.84, True),
+            ],
+        )
+        self.assertEqual(result[0]["source"], "circular_quay")
+
     def test_official_delay_shifts_times_only(self):
         result = tides.get_tides_for_date(datetime(2026, 5, 22), delay_minutes=15)
         self.assertEqual(result[0]["time"].strftime("%H:%M"), "00:33")
@@ -56,9 +69,10 @@ class TideServiceTest(unittest.TestCase):
         mock_nearest.assert_called_once()
         mock_fetch.assert_called_once_with("nearest-1", "2026-05-22")
 
-    def test_estimate_returns_four_events(self):
+    def test_estimate_returns_target_day_events(self):
         result = tides.get_tides_for_date(datetime(2026, 5, 20), delay_minutes=10)
-        self.assertEqual(len(result), 4)
+        self.assertGreaterEqual(len(result), 1)
+        self.assertTrue(all(x["time"].date() == datetime(2026, 5, 20).date() for x in result))
         self.assertTrue(all("time" in x and "is_high" in x and "label" in x for x in result))
 
     @patch("services.tides._worldtides_key", return_value="abc")
@@ -79,7 +93,7 @@ class TideServiceTest(unittest.TestCase):
     @patch("services.tides._fetch_worldtides_extremes", side_effect=RuntimeError("boom"))
     def test_falls_back_when_worldtides_fails(self, _mock_fetch, _mock_key):
         result = tides.get_tides_for_date(datetime(2026, 5, 20), delay_minutes=5, lat=-33.85, lon=151.2)
-        self.assertEqual(len(result), 4)
+        self.assertGreaterEqual(len(result), 1)
 
 
 if __name__ == "__main__":

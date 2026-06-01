@@ -47,25 +47,31 @@ _CIRCULAR_QUAY_TIDES = {
     "2026-05-29": [("01:05", 0.62, False), ("06:47", 1.39, True), ("12:30", 0.64, False), ("19:08", 1.78, True)],
     "2026-05-30": [("01:45", 0.58, False), ("07:30", 1.37, True), ("13:04", 0.65, False), ("19:44", 1.82, True)],
     "2026-05-31": [("02:24", 0.55, False), ("08:11", 1.36, True), ("13:39", 0.67, False), ("20:18", 1.84, True)],
+    "2026-06-01": [("03:00", 0.53, False), ("08:51", 1.35, True), ("14:15", 0.69, False), ("20:54", 1.84, True)],
+    "2026-06-02": [("03:39", 0.53, False), ("09:31", 1.33, True), ("14:52", 0.70, False), ("21:30", 1.83, True)],
+    "2026-06-03": [("04:18", 0.55, False), ("10:12", 1.32, True), ("15:31", 0.72, False), ("22:08", 1.80, True)],
 }
 
 
 def _estimate_tides_for_date(target_date: datetime, delay_minutes: int = 0) -> list[dict]:
-    """天文近似算法：4 个潮汐事件（2 满潮 + 2 干潮）。"""
+    """天文近似算法：返回落在目标自然日内的潮汐事件。"""
     days_since_ref = (target_date.date() - _REFERENCE_HIGH.date()).days
-    total_drift = timedelta(minutes=days_since_ref * LUNAR_DRIFT_PER_DAY + delay_minutes)
-
-    base = _REFERENCE_HIGH + total_drift
-    base = base.replace(
-        year=target_date.year,
-        month=target_date.month,
-        day=target_date.day,
-    )
+    midnight = target_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    high_cycle_minutes = SEMI_DIURNAL_MINUTES * 2
+    first_high_minutes = (
+        TIDE_REF_HOUR * 60
+        + TIDE_REF_MINUTE
+        + days_since_ref * LUNAR_DRIFT_PER_DAY
+        + delay_minutes
+    ) % high_cycle_minutes
+    base_high = midnight + timedelta(minutes=first_high_minutes)
 
     tides = []
-    for i in range(4):
-        t = base + timedelta(minutes=i * SEMI_DIURNAL_MINUTES)
-        is_high = i % 2 == 0
+    for step in range(-3, 5):
+        t = base_high + timedelta(minutes=step * SEMI_DIURNAL_MINUTES)
+        if t.date() != target_date.date():
+            continue
+        is_high = step % 2 == 0
         tides.append(
             {
                 "time": t,
@@ -75,7 +81,7 @@ def _estimate_tides_for_date(target_date: datetime, delay_minutes: int = 0) -> l
                 "source": "estimate",
             }
         )
-    return tides
+    return sorted(tides, key=lambda x: x["time"])
 
 
 def _official_circular_quay_for_date(target_date: datetime, delay_minutes: int = 0) -> list[dict]:

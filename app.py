@@ -888,6 +888,8 @@ def render_tide_panel(base_tides: list, chart_key: str = "tide", target_date: da
     ))
     event_x, event_y, event_text, event_color = [], [], [], []
     for td in sorted_tides:
+        if td["time"].date() != ref_day.date():
+            continue
         xh = td["time"].hour + td["time"].minute / 60
         if not 0 <= xh <= 24:
             continue
