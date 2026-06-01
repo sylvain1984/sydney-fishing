@@ -269,13 +269,22 @@ def _get_tidecheck_for_date(target_date: datetime, delay_minutes: int = 0) -> li
     if not _tidecheck_key():
         return []
 
+    # TideCheck free tier supports current/future predictions, not historical data.
+    # The chart asks for the previous day to interpolate midnight; use fallback
+    # sources for that instead of breaking the app on a 403.
+    if target_date.date() < datetime.now(_SYD_TZ).date():
+        return []
+
     station_id = _tidecheck_station_id()
     if not station_id:
         station_id = _fetch_tidecheck_nearest_station(_SYDNEY_TIDE_LAT, _SYDNEY_TIDE_LON)
     if not station_id:
         return []
 
-    events = _fetch_tidecheck_extremes_cached(station_id, target_date.strftime("%Y-%m-%d"))
+    try:
+        events = _fetch_tidecheck_extremes_cached(station_id, target_date.strftime("%Y-%m-%d"))
+    except Exception:
+        return []
     picked = _pick_events_for_date(events, target_date)
     if not picked:
         return []

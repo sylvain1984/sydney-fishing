@@ -44,15 +44,15 @@ class TideServiceTest(unittest.TestCase):
     def test_tidecheck_is_used_when_available(self, mock_fetch, _mock_station, _mock_key):
         with TemporaryDirectory() as tmpdir, patch.dict("os.environ", {"APP_DATA_DIR": tmpdir}):
             mock_fetch.return_value = [
-                {"time": datetime(2026, 5, 22, 0, 18), "is_high": True, "label": "🟢 满潮", "height_m": 1.78, "source": "tidecheck"},
-                {"time": datetime(2026, 5, 22, 7, 17), "is_high": False, "label": "🔵 干潮", "height_m": 0.34, "source": "tidecheck"},
+                {"time": datetime(2026, 6, 4, 0, 18), "is_high": True, "label": "🟢 满潮", "height_m": 1.78, "source": "tidecheck"},
+                {"time": datetime(2026, 6, 4, 7, 17), "is_high": False, "label": "🔵 干潮", "height_m": 0.34, "source": "tidecheck"},
             ]
 
-            result = tides.get_tides_for_date(datetime(2026, 5, 22))
+            result = tides.get_tides_for_date(datetime(2026, 6, 4))
 
         self.assertEqual(result[0]["source"], "tidecheck")
         self.assertEqual(result[0]["time"].strftime("%H:%M"), "00:18")
-        mock_fetch.assert_called_once_with("station-1", "2026-05-22")
+        mock_fetch.assert_called_once_with("station-1", "2026-06-04")
 
     @patch("services.tides._tidecheck_key", return_value="tc_key")
     @patch("services.tides._tidecheck_station_id", return_value="")
@@ -61,16 +61,16 @@ class TideServiceTest(unittest.TestCase):
     def test_tidecheck_can_use_nearest_station(self, mock_fetch, mock_nearest, _mock_station, _mock_key):
         with TemporaryDirectory() as tmpdir, patch.dict("os.environ", {"APP_DATA_DIR": tmpdir}):
             mock_fetch.return_value = [
-                {"time": datetime(2026, 5, 22, 13, 22), "is_high": True, "label": "🟢 满潮", "height_m": 1.25, "source": "tidecheck"},
-                {"time": datetime(2026, 5, 22, 18, 48), "is_high": False, "label": "🔵 干潮", "height_m": 0.63, "source": "tidecheck"},
+                {"time": datetime(2026, 6, 4, 13, 22), "is_high": True, "label": "🟢 满潮", "height_m": 1.25, "source": "tidecheck"},
+                {"time": datetime(2026, 6, 4, 18, 48), "is_high": False, "label": "🔵 干潮", "height_m": 0.63, "source": "tidecheck"},
             ]
 
-            result = tides.get_tides_for_date(datetime(2026, 5, 22), delay_minutes=10)
+            result = tides.get_tides_for_date(datetime(2026, 6, 4), delay_minutes=10)
 
         self.assertEqual(result[0]["time"].strftime("%H:%M"), "13:32")
         self.assertEqual(result[0]["height_m"], 1.25)
         mock_nearest.assert_called_once()
-        mock_fetch.assert_called_once_with("nearest-1", "2026-05-22")
+        mock_fetch.assert_called_once_with("nearest-1", "2026-06-04")
 
     @patch("services.tides._tidecheck_key", return_value="tc_key")
     @patch("services.tides._fetch_tidecheck_extremes")
@@ -86,6 +86,27 @@ class TideServiceTest(unittest.TestCase):
 
         self.assertEqual(first, second)
         mock_fetch.assert_called_once_with("station-1", "2026-06-04")
+
+    @patch("services.tides.datetime")
+    @patch("services.tides._tidecheck_key", return_value="tc_key")
+    @patch("services.tides._fetch_tidecheck_extremes")
+    def test_tidecheck_skips_past_dates_for_free_tier(self, mock_fetch, _mock_key, mock_datetime):
+        mock_datetime.now.return_value = datetime(2026, 6, 1)
+        mock_datetime.side_effect = lambda *args, **kwargs: datetime(*args, **kwargs)
+
+        result = tides._get_tidecheck_for_date(datetime(2026, 5, 31))
+
+        self.assertEqual(result, [])
+        mock_fetch.assert_not_called()
+
+    @patch("services.tides._tidecheck_key", return_value="tc_key")
+    @patch("services.tides._tidecheck_station_id", return_value="station-1")
+    @patch("services.tides._fetch_tidecheck_extremes_cached", side_effect=RuntimeError("forbidden"))
+    def test_tidecheck_errors_fall_back(self, _mock_fetch, _mock_station, _mock_key):
+        result = tides.get_tides_for_date(datetime(2026, 6, 4))
+
+        self.assertGreaterEqual(len(result), 1)
+        self.assertNotEqual(result[0]["source"], "tidecheck")
 
     def test_estimate_returns_target_day_events(self):
         result = tides.get_tides_for_date(datetime(2026, 5, 20), delay_minutes=10)
