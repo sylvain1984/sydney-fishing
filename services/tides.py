@@ -3,7 +3,9 @@
 # ============================================================
 
 import os
+import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 from zoneinfo import ZoneInfo
 
@@ -30,6 +32,14 @@ _SYD_TZ = ZoneInfo("Australia/Sydney")
 _MIN_EVENT_GAP_MINUTES = 300  # 5h, avoid near-duplicate extremes
 _SYDNEY_TIDE_LAT = -33.8610
 _SYDNEY_TIDE_LON = 151.2120
+_TIDECHECK_CACHE_TTL_SECONDS = 24 * 3600
+_TIDECHECK_CACHE_FILE = "tidecheck_cache.json"
+_SOURCE_LABELS = {
+    "tidecheck": "TideCheck API · 本地缓存 24 小时",
+    "worldtides": "WorldTides API · 实时极值",
+    "circular_quay": "Circular Quay 官方基准 · 本地表",
+    "estimate": "天文估算 · 仅供参考",
+}
 
 # Circular Quay baseline predictions for the current app-critical window.
 # BoM blocks automated scraping, so keep local overrides ahead of the rough
@@ -129,6 +139,47 @@ def _tidecheck_station_id() -> str:
     return _secret_or_env("tidecheck_station_id", "TIDECHECK_STATION_ID")
 
 
+def _app_data_dir() -> Path:
+    return Path(os.environ.get("APP_DATA_DIR", "data"))
+
+
+def _tidecheck_cache_path() -> Path:
+    return _app_data_dir() / _TIDECHECK_CACHE_FILE
+
+
+def _load_tidecheck_cache() -> dict:
+    path = _tidecheck_cache_path()
+    try:
+        if not path.exists():
+            return {}
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _save_tidecheck_cache(cache: dict) -> None:
+    path = _tidecheck_cache_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(cache, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _serialize_tide_event(event: dict) -> dict:
+    return {
+        **event,
+        "time": event["time"].isoformat(),
+    }
+
+
+def _deserialize_tide_event(event: dict) -> dict:
+    return {
+        **event,
+        "time": datetime.fromisoformat(event["time"]),
+    }
+
+
 def _to_epoch_seconds(dt: datetime) -> int:
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=_SYD_TZ)
@@ -196,6 +247,24 @@ def _fetch_tidecheck_extremes(station_id: str, date_key: str) -> list[dict]:
     return parsed
 
 
+def _fetch_tidecheck_extremes_cached(station_id: str, date_key: str) -> list[dict]:
+    cache_key = f"{station_id}:{date_key}"
+    now_ts = int(datetime.now(timezone.utc).timestamp())
+    cache = _load_tidecheck_cache()
+    cached = cache.get(cache_key)
+    if cached and now_ts - int(cached.get("fetched_at", 0)) < _TIDECHECK_CACHE_TTL_SECONDS:
+        return [_deserialize_tide_event(item) for item in cached.get("events", [])]
+
+    events = _fetch_tidecheck_extremes(station_id, date_key)
+    if events:
+        cache[cache_key] = {
+            "fetched_at": now_ts,
+            "events": [_serialize_tide_event(item) for item in events],
+        }
+        _save_tidecheck_cache(cache)
+    return events
+
+
 def _get_tidecheck_for_date(target_date: datetime, delay_minutes: int = 0) -> list[dict]:
     if not _tidecheck_key():
         return []
@@ -206,7 +275,7 @@ def _get_tidecheck_for_date(target_date: datetime, delay_minutes: int = 0) -> li
     if not station_id:
         return []
 
-    events = _fetch_tidecheck_extremes(station_id, target_date.strftime("%Y-%m-%d"))
+    events = _fetch_tidecheck_extremes_cached(station_id, target_date.strftime("%Y-%m-%d"))
     picked = _pick_events_for_date(events, target_date)
     if not picked:
         return []
@@ -331,3 +400,17 @@ def get_tide_accuracy_hint() -> str:
     if today.strftime("%Y-%m-%d") in _CIRCULAR_QUAY_TIDES:
         return "潮汐精度：Circular Quay 基准潮汐（本地钓点按延迟修正）"
     return "潮汐精度：天文估算（通常约 ±30–60 分钟）"
+
+
+def get_tide_source_label(tides: list[dict]) -> str:
+    """Return a user-facing label for the actual tide data in use."""
+    source = ""
+    for tide in tides or []:
+        source = str(tide.get("source", "")).strip()
+        if source:
+            break
+    return _SOURCE_LABELS.get(source, "潮汐来源未知")
+
+
+def is_estimated_tide(tides: list[dict]) -> bool:
+    return any(tide.get("source") == "estimate" for tide in tides or [])

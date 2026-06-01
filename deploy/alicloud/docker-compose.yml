@@ -8,6 +8,8 @@ services:
     environment:
       - TZ=Australia/Sydney
       - APP_DATA_DIR=/app/data
+      - TIDECHECK_API_KEY=${TIDECHECK_API_KEY:-}
+      - TIDECHECK_STATION_ID=${TIDECHECK_STATION_ID:-}
       # If you later want Turso, uncomment and set these:
       # - TURSO_DATABASE_URL=
       # - TURSO_AUTH_TOKEN=

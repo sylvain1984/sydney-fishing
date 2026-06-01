@@ -19,7 +19,7 @@ from streamlit_folium import st_folium
 
 import config as cfg
 from services.weather import get_marine_forecast
-from services.tides import get_tides_for_date
+from services.tides import get_tides_for_date, get_tide_source_label, is_estimated_tide
 from services.fuel import get_nearby_fuel
 from services.stats import (
     record_visit_start, record_visit_end, render_stats_panel,
@@ -2104,6 +2104,9 @@ def render_day_tab(day_offset: int, overview_weather: dict) -> None:
             'TIDES · FORT DENISON</div>',
             unsafe_allow_html=True,
         )
+        st.caption(get_tide_source_label(base_tides))
+        if is_estimated_tide(base_tides):
+            st.warning("今日潮汐为天文估算，仅供参考；出行前请核对官方潮汐。")
         render_tide_panel(base_tides, chart_key=f"tide_{day_offset}", target_date=target_date)
     perf["overview"] = time.perf_counter() - _t0
 

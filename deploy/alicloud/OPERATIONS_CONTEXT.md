@@ -74,6 +74,8 @@ docker run -d --name sydney-fishing --restart unless-stopped \
   -p 8501:8501 \
   -e TZ=Australia/Sydney \
   -e APP_DATA_DIR=/app/data \
+  -e TIDECHECK_API_KEY="$TIDECHECK_API_KEY" \
+  -e TIDECHECK_STATION_ID="$TIDECHECK_STATION_ID" \
   -v /opt/sydney-fishing/data:/app/data \
   sydney-fishing:latest
 ```
@@ -108,5 +110,18 @@ curl -I https://drunkfishing.xyz
   - `HERO_SPOT_LIMIT = 80`
 - Purpose: reduce first-load external weather/tide calls.
 
-## 10) Historical Note
+## 10) Tide Data Source
+- Preferred source: TideCheck API free tier.
+- Required env var: `TIDECHECK_API_KEY`
+- Optional env var: `TIDECHECK_STATION_ID`
+  - Set this to the Sydney/Fort Denison-compatible TideCheck station once confirmed.
+  - If omitted, the app looks up the nearest station to Circular Quay and caches it for 24 hours.
+- API responses are cached in `/opt/sydney-fishing/data/tidecheck_cache.json` for 24 hours.
+- Fallback order:
+  1. TideCheck API
+  2. WorldTides API, if configured
+  3. Local Circular Quay override table
+  4. Astronomical estimate, clearly marked in the UI
+
+## 11) Historical Note
 - Previous ECS/IP used earlier in this project: `47.236.73.48` (no longer active production target).
