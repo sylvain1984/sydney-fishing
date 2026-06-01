@@ -53,6 +53,8 @@ spots = load_spots()
 MAP_MARKER_LIMIT = 120
 MAP_MARKER_LIMIT_MOBILE = 70
 FAST_SPOT_LIMIT = 30
+DESKTOP_SPOT_LIMIT = 80
+HERO_SPOT_LIMIT = 80
 SYD_TZ = ZoneInfo("Australia/Sydney")
 LOG_MAX_PHOTOS = 4
 LOG_MAX_PHOTO_BYTES = 3 * 1024 * 1024
@@ -2118,7 +2120,7 @@ def render_day_tab(day_offset: int, overview_weather: dict) -> None:
             selected_region,
             water_type,
             family_only,
-            FAST_SPOT_LIMIT if is_mobile else 0,
+            FAST_SPOT_LIMIT if is_mobile else DESKTOP_SPOT_LIMIT,
         )
     filtered = payload["filtered"]
     forecast_by_spot = payload["forecast_by_spot"]
@@ -2465,7 +2467,7 @@ if selected_page == "🎣 钓点推荐":
     date_str = f"{today.year} 年 {today.month} 月 {today.day} 日"
     weekdays = ["周一","周二","周三","周四","周五","周六","周日"]
     weekday  = weekdays[today.weekday()]
-    hero_spots = [spot for spot in spots if spot_matches(spot)]
+    hero_spots = [spot for spot in spots if spot_matches(spot)][:HERO_SPOT_LIMIT]
     hero_safe = 0
     hero_ocean_danger = 0
     hero_forecast_by_coord = {}
