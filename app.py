@@ -53,7 +53,7 @@ spots = load_spots()
 MAP_MARKER_LIMIT = 120
 MAP_MARKER_LIMIT_MOBILE = 70
 FAST_SPOT_LIMIT = 30
-DESKTOP_SPOT_LIMIT = 80
+DESKTOP_SPOT_LIMIT = 30
 HERO_SPOT_LIMIT = 80
 SYD_TZ = ZoneInfo("Australia/Sydney")
 LOG_MAX_PHOTOS = 4
@@ -2470,17 +2470,14 @@ if selected_page == "🎣 钓点推荐":
     date_str = f"{today.year} 年 {today.month} 月 {today.day} 日"
     weekdays = ["周一","周二","周三","周四","周五","周六","周日"]
     weekday  = weekdays[today.weekday()]
+    today_obj = _now_sydney()
+    _day_overview = get_marine_forecast(-33.8688, 151.2093)
     hero_spots = [spot for spot in spots if spot_matches(spot)][:HERO_SPOT_LIMIT]
     hero_safe = 0
     hero_ocean_danger = 0
-    hero_forecast_by_coord = {}
+    _overview_today_weather = _day_overview["days"][0]
     for _spot in hero_spots:
-        _w_lat, _w_lon = _weather_coords(_spot)
-        _key = _forecast_key(_w_lat, _w_lon)
-        if _key not in hero_forecast_by_coord:
-            hero_forecast_by_coord[_key] = get_marine_forecast(_w_lat, _w_lon)
-        _today_weather = hero_forecast_by_coord[_key]["days"][0]
-        _safety = assess_safety(_spot, _today_weather)
+        _safety = assess_safety(_spot, _overview_today_weather)
         if _safety["color"] == "sage":
             hero_safe += 1
         if _spot.get("water_type") in {"ocean", "boat"} and _safety["color"] == "coral":
@@ -2518,9 +2515,6 @@ if selected_page == "🎣 钓点推荐":
         f'</div>',
         unsafe_allow_html=True,
     )
-
-    today_obj = _now_sydney()
-    _day_overview = get_marine_forecast(-33.8688, 151.2093)
 
     def _day_weather_icon(i: int) -> str:
         w = _day_overview["days"][i]

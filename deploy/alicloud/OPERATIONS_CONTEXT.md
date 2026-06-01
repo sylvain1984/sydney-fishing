@@ -106,7 +106,7 @@ curl -I https://drunkfishing.xyz
 
 ## 9) Current Performance Optimization Applied
 - Reduced first-screen computation scope in `app.py`:
-  - `DESKTOP_SPOT_LIMIT = 80`
+  - `DESKTOP_SPOT_LIMIT = 30`
   - `HERO_SPOT_LIMIT = 80`
 - Purpose: reduce first-load external weather/tide calls.
 
