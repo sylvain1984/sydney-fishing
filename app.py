@@ -484,12 +484,15 @@ def _fish_rules_cook_html(fish_tags: list, max_items: int = 5) -> str:
             size_str = "禁捕"
         elif "有害" in note:
             size_str = "须就地处理"
+        elif "≥" in note:
+            # note 中已含分品种尺寸说明（如短鳓鰼≥30cm；长鳓鰼≥58cm），直接显示
+            size_str = note
         elif size:
             size_str = f"≥ {size} cm"
         else:
             size_str = "无限制"
 
-        if bag is not None and bag > 0:
+        if bag is not None and bag > 0 and "≥" not in note:
             size_str += f" · 袋限 {bag} 条"
 
         rows.append(
